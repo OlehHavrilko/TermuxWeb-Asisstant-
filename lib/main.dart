@@ -1,114 +1,96 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:provider/provider.dart';
+import 'package:permission_handler/permission_handler.dart';
 
-import 'core/constants/app_theme.dart';
+import 'core/theme/app_theme.dart';
 import 'core/services/termux_service.dart';
-import 'features/terminal/presentation/terminal_page.dart';
-import 'features/packages/presentation/packages_page.dart';
-import 'features/files/presentation/files_page.dart';
-import 'features/scripts/presentation/scripts_page.dart';
-import 'features/monitor/presentation/monitor_page.dart';
-import 'features/settings/presentation/settings_page.dart';
+import 'features/terminal/terminal_screen.dart';
+import 'features/packages/packages_screen.dart';
+import 'features/files/files_screen.dart';
+import 'features/scripts/scripts_screen.dart';
+import 'features/monitor/monitor_screen.dart';
+import 'features/settings/settings_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  await SystemChrome.setPreferredOrientations([
-    DeviceOrientation.portraitUp,
-    DeviceOrientation.landscapeLeft,
-    DeviceOrientation.landscapeRight,
-  ]);
-  
-  runApp(const TermuxAssistantApp());
+  runApp(
+    MultiProvider(
+      providers: [
+        Provider<TermuxService>(create: (_) => TermuxService()),
+      ],
+      child: const TermuxAssistantApp(),
+    ),
+  );
 }
 
 class TermuxAssistantApp extends StatelessWidget {
-  const TermuxAssistantApp({super.key});
+  const TermuxAssistantApp({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    return RepositoryProvider(
-      create: (context) => TermuxService(),
-      child: MaterialApp(
-        title: 'Termux Assistant',
-        debugShowCheckedModeBanner: false,
-        theme: AppTheme.lightTheme,
-        darkTheme: AppTheme.darkTheme,
-        themeMode: ThemeMode.dark,
-        home: const MainNavigationPage(),
-      ),
+    return MaterialApp(
+      title: 'Termux Assistant',
+      theme: AppTheme.lightTheme,
+      darkTheme: AppTheme.darkTheme,
+      themeMode: ThemeMode.dark, // Default to dark as requested
+      home: const MainScreen(),
     );
   }
 }
 
-class MainNavigationPage extends StatefulWidget {
-  const MainNavigationPage({super.key});
+class MainScreen extends StatefulWidget {
+  const MainScreen({Key? key}) : super(key: key);
 
   @override
-  State<MainNavigationPage> createState() => _MainNavigationPageState();
+  _MainScreenState createState() => _MainScreenState();
 }
 
-class _MainNavigationPageState extends State<MainNavigationPage> {
+class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 0;
-  
-  final List<Widget> _pages = const [
-    TerminalPage(),
-    PackagesPage(),
-    FilesPage(),
-    ScriptsPage(),
-    MonitorPage(),
-    SettingsPage(),
-  ];
-  
-  final List<NavigationDestination> _destinations = const [
-    NavigationDestination(
-      icon: Icon(Icons.terminal),
-      selectedIcon: Icon(Icons.terminal),
-      label: 'Terminal',
-    ),
-    NavigationDestination(
-      icon: Icon(Icons.inventory_2_outlined),
-      selectedIcon: Icon(Icons.inventory_2),
-      label: 'Packages',
-    ),
-    NavigationDestination(
-      icon: Icon(Icons.folder_outlined),
-      selectedIcon: Icon(Icons.folder),
-      label: 'Files',
-    ),
-    NavigationDestination(
-      icon: Icon(Icons.code_outlined),
-      selectedIcon: Icon(Icons.code),
-      label: 'Scripts',
-    ),
-    NavigationDestination(
-      icon: Icon(Icons.monitor_heart_outlined),
-      selectedIcon: Icon(Icons.monitor_heart),
-      label: 'Monitor',
-    ),
-    NavigationDestination(
-      icon: Icon(Icons.settings_outlined),
-      selectedIcon: Icon(Icons.settings),
-      label: 'Settings',
-    ),
+
+  @override
+  void initState() {
+    super.initState();
+    _requestPermissions();
+  }
+
+  Future<void> _requestPermissions() async {
+    if (await Permission.manageExternalStorage.isGranted == false) {
+      await Permission.manageExternalStorage.request();
+    }
+    await Permission.storage.request();
+  }
+
+  final List<Widget> _screens = const [
+    TerminalScreen(),
+    PackagesScreen(),
+    FilesScreen(),
+    ScriptsScreen(),
+    MonitorScreen(),
+    SettingsScreen(),
   ];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: IndexedStack(
-        index: _currentIndex,
-        children: _pages,
-      ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _currentIndex,
-        onDestinationSelected: (index) {
+      body: _screens[_currentIndex],
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _currentIndex,
+        type: BottomNavigationBarType.fixed,
+        onTap: (index) {
           setState(() {
             _currentIndex = index;
           });
         },
-        destinations: _destinations,
+        items: const [
+          BottomNavigationBarItem(icon: Icon(Icons.terminal), label: 'Terminal'),
+          BottomNavigationBarItem(icon: Icon(Icons.apps), label: 'Packages'),
+          BottomNavigationBarItem(icon: Icon(Icons.folder), label: 'Files'),
+          BottomNavigationBarItem(icon: Icon(Icons.code), label: 'Scripts'),
+          BottomNavigationBarItem(icon: Icon(Icons.monitor), label: 'Monitor'),
+          BottomNavigationBarItem(icon: Icon(Icons.settings), label: 'Settings'),
+        ],
       ),
     );
   }
